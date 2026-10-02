@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plant Growth L-System Simulator</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+<div class="max-w-5xl mx-auto p-4">
+  <h1 class="text-3xl font-bold text-center text-green-400 mb-1">🌿 Plant Growth L-System Simulator</h1>
+  <p class="text-center text-gray-400 text-sm mb-4">Watch mathematical rules grow into beautiful plant forms</p>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <!-- Controls -->
+    <div class="lg:col-span-1 space-y-4">
+      <!-- Presets -->
+      <div class="bg-gray-800 rounded-2xl p-4">
+        <h2 class="font-bold text-gray-300 mb-3">Presets</h2>
+        <div class="grid grid-cols-1 gap-2">
+          <button onclick="loadPreset('fern')" class="px-3 py-2 bg-green-700 text-white rounded-lg text-sm hover:bg-green-600 transition font-semibold text-left" aria-label="Fern preset">🌿 Fern</button>
+          <button onclick="loadPreset('tree')" class="px-3 py-2 bg-yellow-700 text-white rounded-lg text-sm hover:bg-yellow-600 transition font-semibold text-left" aria-label="Tree preset">🌳 Tree</button>
+          <button onclick="loadPreset('bush')" class="px-3 py-2 bg-lime-700 text-white rounded-lg text-sm hover:bg-lime-600 transition font-semibold text-left" aria-label="Bush preset">🌱 Bush</button>
+          <button onclick="loadPreset('fractal')" class="px-3 py-2 bg-teal-700 text-white rounded-lg text-sm hover:bg-teal-600 transition font-semibold text-left" aria-label="Fractal Plant preset">🌺 Fractal Plant</button>
+          <button onclick="loadPreset('koch')" class="px-3 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-600 transition font-semibold text-left" aria-label="Koch Curve preset">❄️ Koch Curve</button>
+        </div>
+      </div>
+
+      <!-- Parameters -->
+      <div class="bg-gray-800 rounded-2xl p-4 space-y-4">
+        <h2 class="font-bold text-gray-300 mb-2">Parameters</h2>
+        <div>
+          <label for="depth" class="block text-xs text-gray-400 mb-1">Depth: <span id="depth-val">5</span></label>
+          <input type="range" id="depth" min="1" max="8" value="5" class="w-full accent-green-500" aria-label="Recursion depth">
+        </div>
+        <div>
+          <label for="angle" class="block text-xs text-gray-400 mb-1">Branch Angle: <span id="angle-val">25</span>°</label>
+          <input type="range" id="angle" min="5" max="90" value="25" class="w-full accent-green-500" aria-label="Branch angle">
+        </div>
+        <div>
+          <label for="length" class="block text-xs text-gray-400 mb-1">Segment Length: <span id="length-val">8</span>px</label>
+          <input type="range" id="length" min="2" max="20" value="8" class="w-full accent-green-500" aria-label="Segment length">
+        </div>
+        <div>
+          <label for="randomness" class="block text-xs text-gray-400 mb-1">Randomness: <span id="random-val">0</span>°</label>
+          <input type="range" id="randomness" min="0" max="30" value="0" class="w-full accent-green-500" aria-label="Randomness">
+        </div>
+        <div>
+          <label for="color-theme" class="block text-xs text-gray-400 mb-1">Color Theme</label>
+          <select id="color-theme" class="w-full bg-gray-700 text-white rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" aria-label="Color theme">
+            <option value="nature">Nature</option>
+            <option value="autumn">Autumn</option>
+            <option value="neon">Neon</option>
+            <option value="mono">Monochrome</option>
+            <option value="ocean">Ocean</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Animate -->
+      <div class="bg-gray-800 rounded-2xl p-4">
+        <h2 class="font-bold text-gray-300 mb-3">Animation</h2>
+        <div class="flex gap-2">
+          <button onclick="animate()" id="anim-btn" class="flex-1 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-500 transition text-sm" aria-label="Animate growth">▶ Grow</button>
+          <button onclick="drawFull()" class="flex-1 py-2 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-500 transition text-sm" aria-label="Draw full">Full</button>
+        </div>
+        <div class="mt-2 text-xs text-gray-500 text-center" id="gen-info">Generation: 0</div>
+      </div>
+    </div>
+
+    <!-- Canvas -->
+    <div class="lg:col-span-2 bg-gray-800 rounded-2xl p-4 flex flex-col items-center">
+      <canvas id="canvas" width="600" height="500" class="rounded-xl bg-gray-900 w-full max-w-full" style="max-height:500px;object-fit:contain" aria-label="L-System plant visualization"></canvas>
+      <div class="mt-2 text-xs text-gray-500 text-center" id="rule-display"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const presets = {
+  fern: {
+    axiom: 'X',
+    rules: { X: 'F+[[X]-X]-F[-FX]+X', F: 'FF' },
+    angle: 25, depth: 5, length: 6,
+    label: 'Fern — X→F+[[X]-X]-F[-FX]+X, F→FF'
+  },
+  tree: {
+    axiom: 'F',
+    rules: { F: 'FF+[+F-F-F]-[-F+F+F]' },
+    angle: 22, depth: 4, length: 7,
+    label: 'Tree — F→FF+[+F-F-F]-[-F+F+F]'
+  },
+  bush: {
+    axiom: 'F',
+    rules: { F: 'FF-[-F+F+F]+[+F-F-F]' },
+    angle: 20, depth: 4, length: 6,
+    label: 'Bush — F→FF-[-F+F+F]+[+F-F-F]'
+  },
+  fractal: {
+    axiom: 'X',
+    rules: { X: 'F-[[X]+X]+F[+FX]-X', F: 'FF' },
+    angle: 25, depth: 5, length: 5,
+    label: 'Fractal Plant — X→F-[[X]+X]+F[+FX]-X'
+  },
+  koch: {
+    axiom: 'F',
+    rules: { F: 'F+F-F-F+F' },
+    angle: 90, depth: 4, length: 10,
+    label: 'Koch Curve — F→F+F-F-F+F'
+  }
+};
+
+let currentPreset = 'fern';
+let animFrame = null;
+let animStep = 0;
+let animString = '';
+
+const colorThemes = {
+  nature: depth => `hsl(${120 - depth*12},${70-depth*3}%,${35+depth*4}%)`,
+  autumn: depth => `hsl(${30 + depth*8},${80-depth*4}%,${45+depth*3}%)`,
+  neon: depth => `hsl(${depth*45},100%,60%)`,
+  mono: () => '#d1d5db',
+  ocean: depth => `hsl(${200 + depth*10},${60-depth*4}%,${50+depth*3}%)`
+};
+
+function getParam(id) { return parseFloat(document.getElementById(id).value); }
+function getTheme() { return document.getElementById('color-theme').value; }
+
+function loadPreset(name) {
+  currentPreset = name;
+  const p = presets[name];
+  document.getElementById('angle').value = p.angle;
+  document.getElementById('angle-val').textContent = p.angle;
+  document.getElementById('length').value = p.length;
+  document.getElementById('length-val').textContent = p.length;
+  document.getElementById('rule-display').textContent = p.label;
+  drawFull();
+}
+
+function lsystem(axiom, rules, depth) {
+  let s = axiom;
+  for (let i = 0; i < depth; i++) {
+    let next = '';
+    for (const c of s) next += (rules[c] || c);
+    s = next;
+  }
+  return s;
+}
+
+function draw(str, ctx, canvas, angleRad, segLen, randomness) {
+  const theme = getTheme();
+  const colorFn = colorThemes[theme] || colorThemes.nature;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.lineCap = 'round';
+
+  const stack = [];
+  let x = canvas.width / 2;
+  let y = canvas.height - 20;
+  let angle = -Math.PI / 2;
+  let depth = 0;
+
+  for (const c of str) {
+    const rnd = randomness > 0 ? (Math.random() - 0.5) * (randomness * Math.PI / 180) : 0;
+    switch (c) {
+      case 'F':
+        const nx = x + Math.cos(angle + rnd) * segLen;
+        const ny = y + Math.sin(angle + rnd) * segLen;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(nx, ny);
+        ctx.strokeStyle = colorFn(depth);
+        ctx.lineWidth = Math.max(0.5, 3 - depth * 0.4);
+        ctx.stroke();
+        x = nx;
+        y = ny;
+        break;
+      case 'f':
+        x += Math.cos(angle) * segLen;
+        y += Math.sin(angle) * segLen;
+        break;
+      case '+': angle += angleRad; break;
+      case '-': angle -= angleRad; break;
+      case '[': stack.push({x, y, angle, depth}); depth++; break;
+      case ']':
+        const s = stack.pop();
+        x = s.x; y = s.y; angle = s.angle; depth = s.depth;
+        break;
+    }
+  }
+}
+
+function drawFull() {
+  cancelAnimationFrame(animFrame);
+  const p = presets[currentPreset];
+  const depth = Math.min(getParam('depth'), 8);
+  const angleRad = getParam('angle') * Math.PI / 180;
+  const segLen = getParam('length');
+  const randomness = getParam('randomness');
+  const str = lsystem(p.axiom, p.rules, depth);
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  draw(str, ctx, canvas, angleRad, segLen, randomness);
+  document.getElementById('gen-info').textContent = `Generation: ${depth} | Chars: ${str.length}`;
+  const btn = document.getElementById('anim-btn');
+  btn.textContent = '▶ Grow';
+}
+
+function animate() {
+  const btn = document.getElementById('anim-btn');
+  if (animFrame) {
+    cancelAnimationFrame(animFrame);
+    animFrame = null;
+    btn.textContent = '▶ Grow';
+    return;
+  }
+
+  const p = presets[currentPreset];
+  const maxDepth = Math.min(getParam('depth'), 8);
+  const angleRad = getParam('angle') * Math.PI / 180;
+  const segLen = getParam('length');
+  const randomness = getParam('randomness');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  animStep = 0;
+  btn.textContent = '⏸ Pause';
+
+  function step() {
+    if (animStep > maxDepth) {
+      btn.textContent = '▶ Grow';
+      animFrame = null;
+      return;
+    }
+    const str = lsystem(p.axiom, p.rules, animStep);
+    draw(str, ctx, canvas, angleRad, segLen, randomness);
+    document.getElementById('gen-info').textContent = `Generation: ${animStep} | Chars: ${str.length}`;
+    animStep++;
+    animFrame = setTimeout(step, 400 + animStep * 80);
+  }
+  step();
+}
+
+// Bind sliders
+['depth','angle','length','randomness'].forEach(id => {
+  const el = document.getElementById(id);
+  const val = document.getElementById(id === 'randomness' ? 'random-val' : id + '-val');
+  el.addEventListener('input', () => {
+    val.textContent = el.value + (id === 'angle' ? '' : id === 'randomness' ? '' : '');
+    drawFull();
+  });
+});
+document.getElementById('color-theme').addEventListener('change', drawFull);
+
+loadPreset('fern');
+</script>
+</body>
+</html>
